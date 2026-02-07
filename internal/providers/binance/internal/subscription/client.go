@@ -2,6 +2,8 @@ package subscription
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Arjit7d3/datum/internal/providers/binance/internal/ws"
@@ -18,51 +20,77 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) Subscribe(ctx context.Context, url string) (<-chan []byte, error) {
+func (c *Client) Subscribe(ctx context.Context, symbol string, streamName string) (<-chan []byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	url := fmt.Sprintf("%s/ws/%s@%s", ws.BaseURL, strings.ToLower(symbol), streamName)
+
 	if h, ok := c.hubs[url]; ok {
-		return h.subscribe(), nil
+		ch, err := h.subscribe(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		// Ensure unsubscription on context cancellation
+		go func() {
+			<-ctx.Done()
+			c.Unsubscribe(ch)
+		}()
+
+		return ch, nil
 	}
 
-	h := newHub()
+	// Create a long-lived context for the hub and its worker
+	hubCtx, cancel := context.WithCancel(context.Background())
+	h := newHub(hubCtx, cancel)
 	c.hubs[url] = h
 
-	// Connection worker
 	go func() {
-		// Use Background context for the shared connection
-		conn, err := ws.NewConnection(context.Background(), url)
-		if err != nil {
-			h.stopHub()
-			return
-		}
+		// Self-Cleanup: Remove hub from map if it dies unexpectedly
+		defer func() {
+			c.mu.Lock()
+			if existingH, ok := c.hubs[url]; ok && existingH == h {
+				delete(c.hubs, url)
+			}
+			c.mu.Unlock()
+		}()
+
+		// The WS package now handles connection lifecycle and backoff internally.
+		// We just create the object and read.
+		conn := ws.NewConnection(url)
 		defer conn.Close()
 
 		for {
-			select {
-			case <-h.stop:
+			// Read blocks until a message is available or context is cancelled.
+			// Reconnection is handled automatically inside Read.
+			_, msg, err := conn.Read(hubCtx)
+			if err != nil {
+				// The only error returned by Read is if context is cancelled,
+				// so we just return.
 				return
-			default:
-				// Read blocks, so we don't need a select here unless we want to interrupt it.
-				// However, if h.stop is closed, conn.Close() will eventually trigger an error in Read.
-				_, msg, err := conn.Read(context.Background())
-				if err != nil {
-					h.stopHub()
-					return
-				}
+			}
 
-				// Try to send to hub, but abort if hub stopped
-				select {
-				case h.in <- msg:
-				case <-h.stop:
-					return
-				}
+			select {
+			case h.in <- msg:
+			case <-hubCtx.Done():
+				return
 			}
 		}
 	}()
 
-	return h.subscribe(), nil
+	ch, err := h.subscribe(hubCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure unsubscription on context cancellation
+	go func() {
+		<-ctx.Done()
+		c.Unsubscribe(ch)
+	}()
+
+	return ch, nil
 }
 
 func (c *Client) Unsubscribe(ch chan []byte) {
@@ -83,6 +111,6 @@ func (c *Client) UnsubscribeAll(ctx context.Context, url string) {
 	c.mu.Unlock()
 
 	if ok {
-		h.stopHub()
+		h.stop()
 	}
 }

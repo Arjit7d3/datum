@@ -16,7 +16,7 @@ const (
 
 type Provider interface {
 	Subscribe(ctx context.Context, symbol string, streamName string) (<-chan []byte, error)
-	Query(ctx context.Context, symbol string, interval string, startTime int64, endTime int64, limit int) ([][]any, error)
+	Query(ctx context.Context, endpoint string, params map[string]string) ([][]any, error)
 }
 
 func NewDefaultProvider() (Provider, error) {

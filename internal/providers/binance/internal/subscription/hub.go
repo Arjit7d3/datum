@@ -1,45 +1,48 @@
 package subscription
 
-import "sync"
+import (
+	"context"
+	"errors"
+)
 
 type hub struct {
-	in   chan []byte
-	add  chan chan []byte
-	del  chan chan []byte
-	stop chan struct{}
-
-	subs map[chan []byte]struct{}
-	mu   sync.Mutex // Protects subs map for external access (Unsubscribe)
+	in     chan []byte
+	add    chan chan []byte
+	del    chan chan []byte
+	subs   map[chan []byte]struct{}
+	cancel context.CancelFunc
 }
 
-func newHub() *hub {
+func newHub(ctx context.Context, cancel context.CancelFunc) *hub {
 	h := &hub{
-		in:   make(chan []byte),
-		add:  make(chan chan []byte),
-		del:  make(chan chan []byte),
-		stop: make(chan struct{}),
-		subs: make(map[chan []byte]struct{}),
+		in:     make(chan []byte),
+		add:    make(chan chan []byte),
+		del:    make(chan chan []byte),
+		subs:   make(map[chan []byte]struct{}),
+		cancel: cancel,
 	}
-	go h.run()
+	go h.run(ctx)
 	return h
 }
 
-func (h *hub) run() {
+func (h *hub) run(ctx context.Context) {
+	defer func() {
+		for sub := range h.subs {
+			close(sub)
+		}
+		h.subs = nil
+	}()
+
 	for {
 		select {
 		case sub := <-h.add:
-			h.mu.Lock()
 			h.subs[sub] = struct{}{}
-			h.mu.Unlock()
 		case sub := <-h.del:
-			h.mu.Lock()
 			if _, ok := h.subs[sub]; ok {
 				close(sub)
 				delete(h.subs, sub)
 			}
-			h.mu.Unlock()
 		case msg := <-h.in:
-			h.mu.Lock()
 			for ch := range h.subs {
 				select {
 				case ch <- msg:
@@ -47,33 +50,34 @@ func (h *hub) run() {
 					// Skip slow consumers
 				}
 			}
-			h.mu.Unlock()
-		case <-h.stop:
-			h.mu.Lock()
-			for sub := range h.subs {
-				close(sub)
-				delete(h.subs, sub)
-			}
-			h.mu.Unlock()
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (h *hub) subscribe() <-chan []byte {
-	ch := make(chan []byte, 100) // Added buffer to reduce dropped messages
-	h.add <- ch
-	return ch
+// subscribe returns a bidirectional channel so it can be passed back to unsubscribe
+func (h *hub) subscribe(ctx context.Context) (chan []byte, error) {
+	ch := make(chan []byte, 100)
+
+	select {
+	case h.add <- ch:
+		return ch, nil
+	case <-ctx.Done():
+		return nil, errors.New("hub is dead")
+	}
 }
 
 func (h *hub) unsubscribe(ch chan []byte) {
-	h.del <- ch
+	// Unsubscribe is best-effort
+	select {
+	case h.del <- ch:
+	default:
+	}
 }
 
-func (h *hub) stopHub() {
-	select {
-	case h.stop <- struct{}{}:
-	default:
-		// already stopping
+func (h *hub) stop() {
+	if h.cancel != nil {
+		h.cancel()
 	}
 }

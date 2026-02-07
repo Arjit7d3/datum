@@ -54,7 +54,14 @@ func TestProviders(t *testing.T) {
 			t.Log("Execution: Querying klines")
 			end := time.Now().UTC()
 			start := end.Add(-5 * time.Minute)
-			raw, err := provider.Query(context.Background(), tt.symbol, "1m", start.UnixMilli(), end.UnixMilli(), 10)
+			params := map[string]string{
+				"symbol":    tt.symbol,
+				"interval":  "1m",
+				"startTime": fmt.Sprint(start.UnixMilli()),
+				"endTime":   fmt.Sprint(end.UnixMilli()),
+				"limit":     "10",
+			}
+			raw, err := provider.Query(context.Background(), "uiKlines", params)
 			if err != nil {
 				t.Fatalf("Query failed: %v", err)
 			}
