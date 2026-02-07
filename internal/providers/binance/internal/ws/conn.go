@@ -3,16 +3,19 @@ package ws
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
-const BaseURL = "wss://stream.binance.com:9443"
+const BaseURL = "wss://stream.binance.com:9443/stream"
 
 type Connection struct {
 	url  string
 	conn *websocket.Conn
+	mu   sync.Mutex
 }
 
 func NewConnection(url string) *Connection {
@@ -39,6 +42,8 @@ func (c *Connection) dial(ctx context.Context) error {
 }
 
 func (c *Connection) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.conn != nil {
 		return c.conn.Close(websocket.StatusNormalClosure, "")
 	}
@@ -58,8 +63,10 @@ func (c *Connection) Read(ctx context.Context) (websocket.MessageType, []byte, e
 		}
 
 		// Ensure connected
+		c.mu.Lock()
 		if c.conn == nil {
 			if err := c.dial(ctx); err != nil {
+				c.mu.Unlock()
 				fmt.Printf("Connection to %s failed: %v. Retrying in %v...\n", c.url, err, backoff)
 				select {
 				case <-time.After(backoff):
@@ -76,16 +83,36 @@ func (c *Connection) Read(ctx context.Context) (websocket.MessageType, []byte, e
 			backoff = time.Second
 			fmt.Printf("Connected to %s\n", c.url)
 		}
+		conn := c.conn
+		c.mu.Unlock()
 
 		// Try reading
-		typ, msg, err := c.conn.Read(ctx)
+		typ, msg, err := conn.Read(ctx)
 		if err != nil {
 			fmt.Printf("Connection to %s dropped: %v. Reconnecting...\n", c.url, err)
-			c.conn.Close(websocket.StatusNormalClosure, "")
-			c.conn = nil
+			c.mu.Lock()
+			if c.conn == conn { // Check if it hasn't been replaced already
+				c.conn.Close(websocket.StatusNormalClosure, "")
+				c.conn = nil
+			}
+			c.mu.Unlock()
 			continue // Loop back to reconnect
 		}
 
 		return typ, msg, nil
 	}
+}
+
+// WriteJSON sends a JSON message to the connection.
+func (c *Connection) WriteJSON(ctx context.Context, v interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn == nil {
+		if err := c.dial(ctx); err != nil {
+			return fmt.Errorf("failed to dial: %w", err)
+		}
+	}
+
+	return wsjson.Write(ctx, c.conn, v)
 }

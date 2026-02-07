@@ -3,6 +3,7 @@ package subscription
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 type hub struct {
@@ -69,10 +70,11 @@ func (h *hub) subscribe(ctx context.Context) (chan []byte, error) {
 }
 
 func (h *hub) unsubscribe(ch chan []byte) {
-	// Unsubscribe is best-effort
+	// Use a short timeout instead of silently failing
 	select {
 	case h.del <- ch:
-	default:
+	case <-time.After(100 * time.Millisecond):
+		// Hub is likely dead or very slow
 	}
 }
 
