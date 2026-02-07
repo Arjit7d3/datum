@@ -10,7 +10,7 @@ type Binance struct {
 	subscriptionClient *subscription.Client
 }
 
-func NewProvider() *Binance {
+func New() *Binance {
 	return &Binance{
 		httpClient:         http.NewClient(),
 		subscriptionClient: subscription.NewClient(),

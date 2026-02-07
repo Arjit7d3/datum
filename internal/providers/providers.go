@@ -1,33 +1,18 @@
 package providers
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/Arjit7d3/datum/internal/core"
 	"github.com/Arjit7d3/datum/internal/providers/binance"
 )
 
-type ProviderName string
-
-const (
-	Binance ProviderName = "binance"
-	Default ProviderName = Binance
-)
-
-type Provider interface {
-	Subscribe(ctx context.Context, symbol string, streamName string) (<-chan []byte, error)
-	Query(ctx context.Context, endpoint string, params map[string]string) ([][]any, error)
-}
-
-func NewDefaultProvider() (Provider, error) {
-	return NewProvider(Default)
-}
-
-func NewProvider(name ProviderName) (Provider, error) {
+// NewProvider creates a new provider instance by name
+func NewProvider(name string) (core.Provider, error) {
 	switch name {
-	case Binance:
-		return binance.NewProvider(), nil
+	case "binance":
+		return binance.New(), nil
 	default:
-		return nil, fmt.Errorf("provider %s not found", name)
+		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
 }

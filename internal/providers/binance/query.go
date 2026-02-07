@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func (b *Binance) Query(ctx context.Context, endpoint string, params map[string]string) ([][]any, error) {
-	var raw [][]any
+func (b *Binance) Query(ctx context.Context, endpoint string, params map[string]string) ([]byte, error) {
+	var raw []byte
 	var err error
 
 	backoff := 500 * time.Millisecond
@@ -19,7 +19,8 @@ func (b *Binance) Query(ctx context.Context, endpoint string, params map[string]
 			return nil, ctx.Err()
 		}
 
-		err = b.httpClient.Get(ctx, endpoint, params, &raw)
+		// We need to use a method that returns raw bytes.
+		raw, err = b.httpClient.Get(ctx, endpoint, params)
 		if err == nil {
 			return raw, nil
 		}

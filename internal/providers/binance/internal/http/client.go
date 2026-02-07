@@ -2,8 +2,8 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -19,28 +19,28 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) Get(ctx context.Context, endpoint string, queryParams map[string]string, target any) error {
+// Get performs a GET request and returns the raw response body
+func (c *Client) Get(ctx context.Context, endpoint string, queryParams map[string]string) ([]byte, error) {
 	url := GetURL(c.baseURL, endpoint, queryParams)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("bad status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("bad status code: %d", resp.StatusCode)
 	}
 
-	if target != nil {
-		if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
-			return fmt.Errorf("failed to decode response: %w", err)
-		}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	return nil
+	return body, nil
 }
