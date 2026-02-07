@@ -1,6 +1,8 @@
 package core
 
-import "context"
+import (
+	"context"
+)
 
 // IStream represents a data stream that yields items of type T
 type IStream[T any] interface {
@@ -24,9 +26,9 @@ type Provider interface {
 	Query(ctx context.Context, endpoint string, params map[string]string) ([]byte, error)
 
 	// Factory methods for creating streams
-	NewTradeStream(symbol string) IStream[TradeData]
-	NewCandlestickStream(symbol, interval string) IStream[CandlestickData]
+	NewTradeStream(symbol string) IStream[Trade]
+	NewCandlestickStream(symbol, interval string) IStream[Candlestick]
 
 	// Factory methods for creating queries
-	NewCandlestickQuery(symbol, interval string) IQuery[[]RawCandlestick]
+	NewCandlestickQuery(args CandlestickQueryArgs) IQuery[[]Candlestick]
 }

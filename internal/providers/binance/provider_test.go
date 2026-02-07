@@ -63,9 +63,10 @@ func TestBinanceQuery(t *testing.T) {
 
 	b := New()
 	params := map[string]string{
-		"symbol":   "BTCUSDT",
-		"interval": "1h",
-		"limit":    "5",
+		"symbol":    "BTCUSDT",
+		"interval":  "1h",
+		"startTime": "1600000000000",
+		"endTime":   "1600003600000",
 	}
 
 	raw, err := b.Query(ctx, "klines", params)
@@ -114,7 +115,12 @@ func TestBinanceStreamImplementations(t *testing.T) {
 	})
 
 	t.Run("CandlestickQuery", func(t *testing.T) {
-		query := b.NewCandlestickQuery("BTCUSDT", "1h")
+		query := b.NewCandlestickQuery(core.CandlestickQueryArgs{
+			Symbol:    "BTCUSDT",
+			Interval:  "1h",
+			StartTime: 1600000000000,
+			EndTime:   1600003600000,
+		})
 		if query == nil {
 			t.Fatal("NewCandlestickQuery returned nil")
 		}
@@ -160,7 +166,12 @@ func TestBinanceStreamDecode(t *testing.T) {
 	})
 
 	t.Run("CandlestickQuery Decode", func(t *testing.T) {
-		query := b.NewCandlestickQuery("BTCUSDT", "1h")
+		query := b.NewCandlestickQuery(core.CandlestickQueryArgs{
+			Symbol:    "BTCUSDT",
+			Interval:  "1h",
+			StartTime: 1600000000000,
+			EndTime:   1600003600000,
+		})
 
 		// Sample Binance klines response
 		sampleData := []byte(`[[1234567890,  "70000.00", "71000.00", "69000.00", "70500.00", "100.5", 1234571490, "7050000.00", 1000, "50.25", "3525000.00", "0"]]`)

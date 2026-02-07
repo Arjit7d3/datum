@@ -18,7 +18,7 @@ func TestGenericSubscription(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ch, err := datum.Stream(client, datum.Trades("BTCUSDT")).Subscribe(ctx)
+		ch, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx)
 		if err != nil {
 			t.Fatalf("Failed to subscribe: %v", err)
 		}
@@ -38,7 +38,7 @@ func TestGenericSubscription(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ch, err := datum.Stream(client, datum.Candlesticks("ETHUSDT", "1m")).Subscribe(ctx)
+		ch, err := datum.Stream(client, datum.CandlesticksStream{Symbol: "ETHUSDT", Interval: "1m"}).Subscribe(ctx)
 		if err != nil {
 			t.Fatalf("Failed to subscribe: %v", err)
 		}
@@ -65,9 +65,14 @@ func TestGenericQuery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		candlesticks, err := datum.Query(client, datum.CandlesticksQuery("BTCUSDT", "1h")).
-			Limit(5).
-			Execute(ctx)
+		req := datum.CandlesticksQuery{
+			Symbol:    "BTCUSDT",
+			Interval:  "1h",
+			StartTime: time.Now().Add(-5 * time.Hour).UnixMilli(),
+			EndTime:   time.Now().UnixMilli(),
+		}
+
+		candlesticks, err := datum.Query(client, req).Execute(ctx)
 		if err != nil {
 			t.Fatalf("Failed to query: %v", err)
 		}

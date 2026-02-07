@@ -12,7 +12,7 @@ type tradeStream struct {
 	symbol string
 }
 
-func (b *Binance) NewTradeStream(symbol string) core.IStream[core.TradeData] {
+func (b *Binance) NewTradeStream(symbol string) core.IStream[core.Trade] {
 	return &tradeStream{symbol: symbol}
 }
 
@@ -20,7 +20,7 @@ func (ts *tradeStream) GetStreamParams() (string, string) {
 	return strings.ToLower(ts.symbol), "trade"
 }
 
-func (ts *tradeStream) Decode(data []byte) (core.TradeData, error) {
+func (ts *tradeStream) Decode(data []byte) (core.Trade, error) {
 	var wire struct {
 		Symbol    string `json:"s"`
 		Price     string `json:"p"`
@@ -29,13 +29,13 @@ func (ts *tradeStream) Decode(data []byte) (core.TradeData, error) {
 	}
 
 	if err := json.Unmarshal(data, &wire); err != nil {
-		return core.TradeData{}, err
+		return core.Trade{}, err
 	}
 
 	price, _ := strconv.ParseFloat(wire.Price, 64)
 	qty, _ := strconv.ParseFloat(wire.Qty, 64)
 
-	return core.TradeData{
+	return core.Trade{
 		Symbol:    wire.Symbol,
 		Price:     price,
 		Quantity:  qty,

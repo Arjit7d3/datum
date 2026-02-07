@@ -13,7 +13,7 @@ type candlestickStream struct {
 	interval string
 }
 
-func (b *Binance) NewCandlestickStream(symbol, interval string) core.IStream[core.CandlestickData] {
+func (b *Binance) NewCandlestickStream(symbol, interval string) core.IStream[core.Candlestick] {
 	return &candlestickStream{symbol: symbol, interval: interval}
 }
 
@@ -22,7 +22,7 @@ func (cs *candlestickStream) GetStreamParams() (string, string) {
 	return strings.ToLower(cs.symbol), suffix
 }
 
-func (cs *candlestickStream) Decode(data []byte) (core.CandlestickData, error) {
+func (cs *candlestickStream) Decode(data []byte) (core.Candlestick, error) {
 	var wire struct {
 		Symbol string `json:"s"`
 		Kline  struct {
@@ -39,10 +39,10 @@ func (cs *candlestickStream) Decode(data []byte) (core.CandlestickData, error) {
 	}
 
 	if err := json.Unmarshal(data, &wire); err != nil {
-		return core.CandlestickData{}, err
+		return core.Candlestick{}, err
 	}
 
-	return core.CandlestickData{
+	return core.Candlestick{
 		Symbol:     wire.Symbol,
 		Interval:   wire.Kline.Interval,
 		StartTime:  wire.Kline.StartTime,
