@@ -19,7 +19,7 @@ func TestGenericSubscription(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ch, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx)
+		ch, err := datum.Stream(ctx, client, datum.TradesStream{Symbol: "BTCUSDT"})
 		if err != nil {
 			t.Fatalf("Failed to subscribe: %v", err)
 		}
@@ -39,7 +39,7 @@ func TestGenericSubscription(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ch, err := datum.Stream(client, datum.CandlesticksStream{Symbol: "ETHUSDT", Interval: "1m"}).Subscribe(ctx)
+		ch, err := datum.Stream(ctx, client, datum.CandlesticksStream{Symbol: "ETHUSDT", Interval: "1m"})
 		if err != nil {
 			t.Fatalf("Failed to subscribe: %v", err)
 		}
@@ -73,7 +73,7 @@ func TestGenericQuery(t *testing.T) {
 			EndTime:   time.Now().UnixMilli(),
 		}
 
-		candlesticks, err := datum.Query(client, req).Execute(ctx)
+		candlesticks, err := datum.Query(ctx, client, req)
 		if err != nil {
 			t.Fatalf("Failed to query: %v", err)
 		}
@@ -107,7 +107,7 @@ func TestConcurrentStreamsAndQueries(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ch, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(parentCtx)
+		ch, err := datum.Stream(parentCtx, client, datum.TradesStream{Symbol: "BTCUSDT"})
 		if err != nil {
 			t.Errorf("Trade stream failed: %v", err)
 			return
@@ -122,7 +122,7 @@ func TestConcurrentStreamsAndQueries(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ch, err := datum.Stream(client, datum.CandlesticksStream{Symbol: "ETHUSDT", Interval: "1m"}).Subscribe(parentCtx)
+		ch, err := datum.Stream(parentCtx, client, datum.CandlesticksStream{Symbol: "ETHUSDT", Interval: "1m"})
 		if err != nil {
 			t.Errorf("Candlestick stream failed: %v", err)
 			return
@@ -145,7 +145,7 @@ func TestConcurrentStreamsAndQueries(t *testing.T) {
 				StartTime: time.Now().Add(-2 * time.Hour).UnixMilli(),
 				EndTime:   time.Now().UnixMilli(),
 			}
-			result, err := datum.Query(client, req).Execute(parentCtx)
+			result, err := datum.Query(parentCtx, client, req)
 			if err != nil {
 				t.Errorf("Query %d failed: %v", id, err)
 			} else {
@@ -173,12 +173,12 @@ func TestMultipleClientsIndependent(t *testing.T) {
 	defer cancel()
 
 	// Both clients should work independently
-	ch1, err := datum.Stream(client1, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx)
+	ch1, err := datum.Stream(ctx, client1, datum.TradesStream{Symbol: "BTCUSDT"})
 	if err != nil {
 		t.Fatalf("Client1 subscribe failed: %v", err)
 	}
 
-	ch2, err := datum.Stream(client2, datum.TradesStream{Symbol: "ETHUSDT"}).Subscribe(ctx)
+	ch2, err := datum.Stream(ctx, client2, datum.TradesStream{Symbol: "ETHUSDT"})
 	if err != nil {
 		t.Fatalf("Client2 subscribe failed: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestClientReuseAfterContextCancel(t *testing.T) {
 
 	// First subscription with short timeout
 	ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
-	ch1, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx1)
+	ch1, err := datum.Stream(ctx1, client, datum.TradesStream{Symbol: "BTCUSDT"})
 	if err != nil {
 		t.Fatalf("First subscribe failed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestClientReuseAfterContextCancel(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel2()
 
-	ch2, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx2)
+	ch2, err := datum.Stream(ctx2, client, datum.TradesStream{Symbol: "BTCUSDT"})
 	if err != nil {
 		t.Fatalf("Second subscribe failed: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestMultipleSymbolsStream(t *testing.T) {
 
 	// Subscribe to each symbol
 	for _, sym := range symbols {
-		_, err := datum.Stream(client, datum.TradesStream{Symbol: sym}).Subscribe(ctx)
+		_, err := datum.Stream(ctx, client, datum.TradesStream{Symbol: sym})
 		if err != nil {
 			t.Fatalf("Subscribe %s failed: %v", sym, err)
 		}
@@ -286,7 +286,7 @@ func TestRapidSubscribeUnsubscribeIntegration(t *testing.T) {
 
 	for i := 0; i < iterations; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
-		_, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx)
+		_, err := datum.Stream(ctx, client, datum.TradesStream{Symbol: "BTCUSDT"})
 		if err != nil {
 			t.Fatalf("Iteration %d failed: %v", i, err)
 		}
@@ -299,7 +299,7 @@ func TestRapidSubscribeUnsubscribeIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ch, err := datum.Stream(client, datum.TradesStream{Symbol: "BTCUSDT"}).Subscribe(ctx)
+	ch, err := datum.Stream(ctx, client, datum.TradesStream{Symbol: "BTCUSDT"})
 	if err != nil {
 		t.Fatalf("Final subscribe failed: %v", err)
 	}

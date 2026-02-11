@@ -1,9 +1,19 @@
 package datum
 
-// Query creates a query builder for the given query request
-func Query[T any](c *Client, req QueryRequest[T]) *QueryBuilder[T] {
-	return &QueryBuilder[T]{
-		provider: c.provider,
-		request:  req,
+import "context"
+
+// Query executes a query and returns the result directly
+func Query[T any](ctx context.Context, c *Client, req QueryRequest[T]) (T, error) {
+	var zero T
+
+	query := req.CreateQuery(c.provider)
+	endpoint := query.GetEndpoint()
+	params := query.GetQueryParameters()
+
+	raw, err := c.provider.Query(ctx, endpoint, params)
+	if err != nil {
+		return zero, err
 	}
+
+	return query.Decode(raw)
 }

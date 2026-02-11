@@ -3,6 +3,7 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/Arjit7d3/datum/internal/core"
 )
@@ -19,19 +20,30 @@ type candlestick struct {
 
 func (c *candlestick) UnmarshalJSON(data []byte) error {
 	var a struct {
-		V [7]json.RawMessage
+		V [12]json.RawMessage
 	}
 
 	if err := json.Unmarshal(data, &a.V); err != nil {
 		return err
 	}
 
+	// Helper to parse string-encoded float from Binance API
+	parseFloat := func(raw json.RawMessage) float64 {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			if f, err := strconv.ParseFloat(s, 64); err == nil {
+				return f
+			}
+		}
+		return 0
+	}
+
 	json.Unmarshal(a.V[0], &c.StartTime)
-	json.Unmarshal(a.V[1], &c.OpenPrice)
-	json.Unmarshal(a.V[2], &c.HighPrice)
-	json.Unmarshal(a.V[3], &c.LowPrice)
-	json.Unmarshal(a.V[4], &c.ClosePrice)
-	json.Unmarshal(a.V[5], &c.Volume)
+	c.OpenPrice = parseFloat(a.V[1])
+	c.HighPrice = parseFloat(a.V[2])
+	c.LowPrice = parseFloat(a.V[3])
+	c.ClosePrice = parseFloat(a.V[4])
+	c.Volume = parseFloat(a.V[5])
 	json.Unmarshal(a.V[6], &c.CloseTime)
 
 	return nil
@@ -72,9 +84,9 @@ func (cq *candlestickQuery) Decode(data []byte) ([]core.Candlestick, error) {
 		candlesticks[i].OpenPrice = binanceCandlesticks[i].OpenPrice
 		candlesticks[i].HighPrice = binanceCandlesticks[i].HighPrice
 		candlesticks[i].LowPrice = binanceCandlesticks[i].LowPrice
+		candlesticks[i].ClosePrice = binanceCandlesticks[i].ClosePrice
 		candlesticks[i].CloseTime = binanceCandlesticks[i].CloseTime
 		candlesticks[i].Volume = binanceCandlesticks[i].Volume
-		candlesticks[i].CloseTime = binanceCandlesticks[i].CloseTime
 	}
 
 	return candlesticks, nil

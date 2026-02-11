@@ -150,7 +150,3 @@ func (c *Client) Unsubscribe(ch chan []byte) {
 		}
 	}
 }
-
-func (c *Client) UnsubscribeAll(ctx context.Context, url string) {
-	// No-op
-}
