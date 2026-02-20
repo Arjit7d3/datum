@@ -1,18 +1,21 @@
 package binance
 
 import (
-	"github.com/Arjit7d3/datum/internal/providers/binance/internal/http"
-	"github.com/Arjit7d3/datum/internal/providers/binance/internal/subscription"
+	"context"
+
+	binance "github.com/arjit7d3/go-binance"
 )
 
 type Binance struct {
-	httpClient         *http.Client
-	subscriptionClient *subscription.Client
+	client *binance.Client
 }
 
-func New() *Binance {
-	return &Binance{
-		httpClient:         http.NewClient(),
-		subscriptionClient: subscription.NewClient(),
+func New(ctx context.Context) (*Binance, error) {
+	c, err := binance.NewClient(ctx)
+	if err != nil {
+		return nil, err
 	}
+	return &Binance{
+		client: c,
+	}, nil
 }

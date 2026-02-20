@@ -1,7 +1,9 @@
 package datum
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arjit7d3/datum/internal/core"
 	"github.com/Arjit7d3/datum/internal/providers"
@@ -13,8 +15,8 @@ type Client struct {
 }
 
 // NewClient creates a new client for the specified provider
-func NewClient(providerName string) (*Client, error) {
-	provider, err := providers.NewProvider(providerName)
+func NewClient(ctx context.Context, providerName string) (*Client, error) {
+	provider, err := providers.NewProvider(ctx, providerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
@@ -26,6 +28,11 @@ func NewClient(providerName string) (*Client, error) {
 
 const defaultProvider = "binance"
 
-func DefaultClient() (*Client, error) {
-	return NewClient(defaultProvider)
+func DefaultClient(ctx context.Context) (*Client, error) {
+	return NewClient(ctx, defaultProvider)
+}
+
+func (c *Client) NewTradeStream(symbol string) (core.IStream[core.Trade], error) {
+	symbol = strings.ToLower(symbol)
+	return c.provider.NewTradeStream(symbol)
 }

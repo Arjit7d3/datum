@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/Arjit7d3/datum/internal/core"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -26,7 +28,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewProvider(tt.providerName)
+			provider, err := NewProvider(context.Background(), tt.providerName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewProvider() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -39,48 +41,39 @@ func TestNewProvider(t *testing.T) {
 }
 
 func TestBinanceProvider(t *testing.T) {
-	provider, err := NewProvider("binance")
+	provider, err := NewProvider(context.Background(), "binance")
 	if err != nil {
 		t.Fatalf("Failed to create Binance provider: %v", err)
 	}
 
-	t.Run("Query", func(t *testing.T) {
+	t.Run("TradeStream", func(t *testing.T) {
+		stream, err := provider.NewTradeStream("BTCUSDT")
+		if err != nil {
+			t.Fatalf("Failed to create trade stream: %v", err)
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		params := map[string]string{
-			"symbol":   "BTCUSDT",
-			"interval": "1h",
-			"limit":    "5",
-		}
+		done := make(chan struct{})
+		// Use OnMessage callback to receive data
+		stream.OnMessage(func(trade core.Trade) {
+			t.Logf("Received trade: %+v", trade)
+			if trade.Symbol != "btcusdt" {
+				t.Errorf("Expected symbol btcusdt, got %s", trade.Symbol)
+			}
 
-		raw, err := provider.Query(ctx, "klines", params)
-		if err != nil {
-			t.Fatalf("Query failed: %v", err)
-		}
-
-		if len(raw) == 0 {
-			t.Error("Expected non-empty response")
-		}
-
-		t.Logf("Received %d bytes", len(raw))
-	})
-
-	t.Run("Subscribe", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		ch, err := provider.Subscribe(ctx, "btcusdt", "trade")
-		if err != nil {
-			t.Fatalf("Subscribe failed: %v", err)
-		}
+			// Try to trigger once
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
+		})
 
 		select {
-		case msg := <-ch:
-			t.Logf("Received message: %d bytes", len(msg))
-			if len(msg) == 0 {
-				t.Error("Expected non-empty message")
-			}
+		case <-done:
+			t.Log("Successfully received a trade event")
 		case <-ctx.Done():
 			t.Log("Timeout waiting for message (this is acceptable)")
 		}

@@ -1,56 +1,50 @@
 package binance
 
 import (
-	"encoding/json"
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Arjit7d3/datum/internal/core"
+	gobinance "github.com/arjit7d3/go-binance"
 )
 
-type candlestickStream struct {
+type candlestickStreamWrapper struct {
 	symbol   string
 	interval string
+	stream   *gobinance.Stream[gobinance.KlineResponse]
 }
 
-func (b *Binance) NewCandlestickStream(symbol, interval string) core.IStream[core.Candlestick] {
-	return &candlestickStream{symbol: symbol, interval: interval}
-}
-
-func (cs *candlestickStream) GetStreamParams() (string, string) {
-	suffix := fmt.Sprintf("kline_%s", cs.interval)
-	return strings.ToLower(cs.symbol), suffix
-}
-
-func (cs *candlestickStream) Decode(data []byte) (core.Candlestick, error) {
-	var wire struct {
-		Symbol string `json:"s"`
-		Kline  struct {
-			StartTime  int64       `json:"t"`
-			CloseTime  int64       `json:"T"`
-			Symbol     string      `json:"s"`
-			Interval   string      `json:"i"`
-			OpenPrice  interface{} `json:"o"`
-			ClosePrice interface{} `json:"c"`
-			HighPrice  interface{} `json:"h"`
-			LowPrice   interface{} `json:"l"`
-			Volume     interface{} `json:"v"`
-		} `json:"k"`
+func (b *Binance) NewCandlestickStream(symbol, interval string) (core.IStream[core.Candlestick], error) {
+	stream, err := b.client.Kline(symbol, interval)
+	if err != nil {
+		return nil, err
 	}
-
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return core.Candlestick{}, err
-	}
-
-	return core.Candlestick{
-		Symbol:     wire.Symbol,
-		Interval:   wire.Kline.Interval,
-		StartTime:  wire.Kline.StartTime,
-		CloseTime:  wire.Kline.CloseTime,
-		OpenPrice:  toFloat64(wire.Kline.OpenPrice),
-		ClosePrice: toFloat64(wire.Kline.ClosePrice),
-		HighPrice:  toFloat64(wire.Kline.HighPrice),
-		LowPrice:   toFloat64(wire.Kline.LowPrice),
-		Volume:     toFloat64(wire.Kline.Volume),
+	return &candlestickStreamWrapper{
+		symbol:   symbol,
+		interval: interval,
+		stream:   stream,
 	}, nil
+}
+
+func (cs *candlestickStreamWrapper) OnMessage(callback func(core.Candlestick)) {
+	cs.stream.OnMessage(func(resp gobinance.KlineResponse) {
+		openPrice, _ := strconv.ParseFloat(resp.Kline.OpenPrice, 64)
+		closePrice, _ := strconv.ParseFloat(resp.Kline.ClosePrice, 64)
+		highPrice, _ := strconv.ParseFloat(resp.Kline.HighPrice, 64)
+		lowPrice, _ := strconv.ParseFloat(resp.Kline.LowPrice, 64)
+		volume, _ := strconv.ParseFloat(resp.Kline.BaseAssetVolume, 64)
+
+		candle := core.Candlestick{
+			Symbol:     strings.ToLower(resp.Symbol),
+			Interval:   resp.Kline.Interval,
+			StartTime:  resp.Kline.StartTime,
+			OpenPrice:  openPrice,
+			ClosePrice: closePrice,
+			HighPrice:  highPrice,
+			LowPrice:   lowPrice,
+			Volume:     volume,
+			CloseTime:  resp.Kline.CloseTime,
+		}
+		callback(candle)
+	})
 }
