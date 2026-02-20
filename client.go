@@ -32,6 +32,15 @@ func DefaultClient(ctx context.Context) (*Client, error) {
 	return NewClient(ctx, defaultProvider)
 }
 
+func (c *Client) NewCandlestickStream(symbol, interval string) (core.IStream[core.Candlestick], error) {
+	return c.provider.NewCandlestickStream(symbol, interval)
+}
+
+// NewDepthStream creates a new depth stream focusing on a specific symbol (internally 100ms)
+func (c *Client) NewDepthStream(symbol string) (core.IStream[core.Depth], error) {
+	return c.provider.NewDepthStream(symbol)
+}
+
 func (c *Client) NewTradeStream(symbol string) (core.IStream[core.Trade], error) {
 	symbol = strings.ToLower(symbol)
 	return c.provider.NewTradeStream(symbol)

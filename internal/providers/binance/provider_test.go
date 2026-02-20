@@ -93,6 +93,39 @@ func TestBinanceStreamImplementations(t *testing.T) {
 			t.Log("Timeout waiting for message (acceptable for test)")
 		}
 	})
+
+	t.Run("DepthStream", func(t *testing.T) {
+		stream, err := b.NewDepthStream("BTCUSDT")
+		if err != nil {
+			t.Fatalf("NewDepthStream failed: %v", err)
+		}
+		if stream == nil {
+			t.Fatal("NewDepthStream returned nil stream")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		done := make(chan struct{})
+
+		stream.OnMessage(func(depth core.Depth) {
+			if depth.Symbol != "btcusdt" {
+				t.Errorf("Expected symbol 'btcusdt', got '%s'", depth.Symbol)
+			}
+
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
+		})
+
+		select {
+		case <-done:
+			t.Log("Successfully received a depth event")
+		case <-ctx.Done():
+			t.Log("Timeout waiting for message (acceptable for test)")
+		}
+	})
 }
 
 // Verify interface compliance

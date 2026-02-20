@@ -44,4 +44,64 @@ func TestGenericSubscription(t *testing.T) {
 			t.Fatal("Timeout waiting for trade")
 		}
 	})
+
+	t.Run("Candlestick Stream", func(t *testing.T) {
+		stream, err := client.NewCandlestickStream("BTCUSDT", "1m")
+		if err != nil {
+			t.Fatalf("Failed to subscribe: %v", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		done := make(chan struct{})
+
+		stream.OnMessage(func(candlestick core.Candlestick) {
+			t.Logf("Received candlestick: %+v", candlestick)
+			if candlestick.Symbol != "btcusdt" {
+				t.Errorf("Expected symbol btcusdt, got %s", candlestick.Symbol)
+			}
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
+		})
+
+		select {
+		case <-done:
+			t.Log("Successfully received a candlestick event")
+		case <-ctx.Done():
+			t.Fatal("Timeout waiting for candlestick")
+		}
+	})
+
+	t.Run("Depth Stream", func(t *testing.T) {
+		stream, err := client.NewDepthStream("BTCUSDT")
+		if err != nil {
+			t.Fatalf("Failed to subscribe: %v", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		done := make(chan struct{})
+
+		stream.OnMessage(func(depth core.Depth) {
+			t.Logf("Received depth: %+v", depth)
+			if depth.Symbol != "btcusdt" {
+				t.Errorf("Expected symbol btcusdt, got %s", depth.Symbol)
+			}
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
+		})
+
+		select {
+		case <-done:
+			t.Log("Successfully received a depth event")
+		case <-ctx.Done():
+			t.Fatal("Timeout waiting for depth")
+		}
+	})
 }

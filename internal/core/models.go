@@ -28,3 +28,19 @@ type CandlestickQueryArgs struct {
 	StartTime int64
 	EndTime   int64
 }
+
+// DepthLevel represents a single price/quantity level in the order book
+type DepthLevel struct {
+	Price    float64
+	Quantity float64
+}
+
+// Depth is the domain model for diff depth stream updates
+type Depth struct {
+	Symbol        string
+	Bids          []DepthLevel
+	Asks          []DepthLevel
+	FirstUpdateID int64
+	FinalUpdateID int64
+	Timestamp     int64
+}

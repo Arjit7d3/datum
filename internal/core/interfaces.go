@@ -10,4 +10,5 @@ type Provider interface {
 	// Factory methods for creating streams
 	NewTradeStream(symbol string) (IStream[Trade], error)
 	NewCandlestickStream(symbol, interval string) (IStream[Candlestick], error)
+	NewDepthStream(symbol string) (IStream[Depth], error)
 }
